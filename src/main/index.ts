@@ -1,11 +1,13 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, Tray, Menu } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
+let mainWindow: BrowserWindow | null = null
+
 function createWindow(): void {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 900,
     height: 670,
     show: false,
@@ -18,7 +20,7 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+    mainWindow && mainWindow.show()
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -39,6 +41,33 @@ function createWindow(): void {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  const tray = new Tray(icon)
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: '意见反馈',
+      click: () => console.log('点击了意见反馈')
+    },
+    {
+      label: '帮助中心',
+      click: () => console.log('点击了帮助中心')
+    },
+    {
+      label: '更新检测',
+      click: () => console.log('点击了更新检测')
+    },
+    {
+      label: '退出',
+      click: () => {
+        app.quit()
+      }
+    }
+  ])
+  tray.setToolTip('这是一个托盘图标')
+  tray.setContextMenu(contextMenu)
+  tray.on('click', () => {
+    mainWindow && mainWindow.show()
+  })
+
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
 
@@ -50,7 +79,25 @@ app.whenReady().then(() => {
   })
 
   // IPC test
-  ipcMain.on('ping', () => console.log('pong'))
+  ipcMain.on('ping', (event) => {
+    console.log('pong')
+    event.reply('ping replay', 'pong成功')
+    event.sender.send('ping replay', 'pong成功')
+  })
+
+  ipcMain.on('getUserInfo', async (event) => {
+    event.returnValue = {
+      name: '张三',
+      age: 18,
+      sex: '男',
+      address: '北京'
+    }
+    mainWindow && mainWindow.webContents.send('messageToRenderer', new Date().toLocaleString())
+  })
+
+  ipcMain.handle('getPhone', async () => {
+    return '13385670878'
+  })
 
   createWindow()
 
